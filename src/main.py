@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI 
 from src.db.db import session
 from src.models.todo import Todo
 
