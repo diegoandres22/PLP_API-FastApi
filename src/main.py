@@ -1,21 +1,9 @@
 from fastapi import FastAPI 
 from src.db.db import session
-from src.models.todo import Todo
 from src.models.raffleModel import Raffle
 
 app = FastAPI()
 
-@app.post("/")
-async def create_todo(text: str, is_done: bool = False):
-
-    todo = Todo(text=text, is_done=is_done)
-    session.add(todo)
-    session.commit()
-    return { "Todo creado": todo.text }
-
-@app.get("/")
-def read_root():
-    return {"Hello World"}
 
 @app.post("/newRaffle/")
 async def create_raffle_endpoint(
@@ -28,7 +16,7 @@ async def create_raffle_endpoint(
     countdown_time: str,
     progress_percentage: float,
     tickets_account_premium: int,
-    state: bool = True,
+    state: bool ,
 ):
     raffle = Raffle(
         title=title,
