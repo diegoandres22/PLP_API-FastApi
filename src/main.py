@@ -12,7 +12,6 @@ async def create_todo(text: str, is_done: bool = False):
     session.commit()
     return { "Todo creado": todo.text }
 
-
 @app.get("/")
 def read_root():
     return {"Hello World"}
