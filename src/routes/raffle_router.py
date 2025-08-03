@@ -4,7 +4,7 @@ from src.db.deps import get_db
 from src.services import raffle_service
 from src.schemas.raffle_schema import RaffleCreate
 from src.schemas.raffle_schema import RaffleUpdate
-
+from uuid import UUID
 
 router = APIRouter()
 
@@ -20,16 +20,16 @@ async def create_raffle_endpoint(
     return raffle_service.create_raffle(data, db)
 
 @router.get("/{raffle_id}")
-def get_raffle_by_id(raffle_id: int, db: Session = Depends(get_db)):
+def get_raffle_by_id(raffle_id: UUID, db: Session = Depends(get_db)):
     return raffle_service.get_raffle_by_id_endpoint(db, raffle_id)
 
 @router.delete("/{raffle_id}")
-def delete_raffle(raffle_id: int, db: Session = Depends(get_db)):
+def delete_raffle(raffle_id: UUID, db: Session = Depends(get_db)):
     return raffle_service.delete_raffle_endpoint(db, raffle_id)
 
 @router.put("/{raffle_id}")
 def update_raffle(
-    raffle_id: int,
+    raffle_id: UUID,
     data: RaffleUpdate,
     db: Session = Depends(get_db)
 ):
