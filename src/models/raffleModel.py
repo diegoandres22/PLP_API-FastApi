@@ -10,40 +10,35 @@ Base = declarative_base()
 class Raffle(Base):
     __tablename__ = 'raffles'
 
-    # Información base
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-    title = Column(String, nullable=False)  # Título de la rifa
-    description = Column(String, nullable=False)  # Descripción general de la rifa
-    image = Column(String, nullable=False)  # URL de la imagen de la rifa
-    ticket_price = Column(Float, nullable=False)  # Precio de cada boleto
-    min_purchase = Column(Float, nullable=False)  # Mínimo de boletos que se deben comprar
-    raffle_status = Column(Integer, nullable=False)  # Estado numérico de la rifa
-    state = Column(Boolean, default=True)  # Estado activo o inactivo
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    image = Column(String, nullable=False)
+    ticket_price = Column(Float, nullable=False)
+    min_purchase = Column(Float, nullable=False)
+    raffle_status = Column(Integer, nullable=False)
+    state = Column(Boolean, default=True)
 
-    # Premios
-    trophy = Column(String, nullable=False)  # Premio principal
-    secondPrize = Column(String, nullable=False)  # Segundo premio
-    additionalPrize = Column(String, nullable=False)  # Premios adicionales
-    premium_ticket1 = Column(Integer, nullable=True)  # Boleto premiado 1
-    premium_ticket2 = Column(Integer, nullable=True)  # Boleto premiado 2
-    premium_ticket3 = Column(Integer, nullable=True)  # Boleto premiado 3
-    premium_ticket4 = Column(Integer, nullable=True)  # Boleto premiado 4
-    premium_ticket5 = Column(Integer, nullable=True)  # Boleto premiado 5
-    premium_ticket6 = Column(Integer, nullable=True)  # Boleto premiado 6
+    trophy = Column(String, nullable=False)
+    secondPrize = Column(String, nullable=False)
+    additionalPrize = Column(String, nullable=False)
+    premium_ticket1 = Column(Integer, nullable=True)
+    premium_ticket2 = Column(Integer, nullable=True)
+    premium_ticket3 = Column(Integer, nullable=True)
+    premium_ticket4 = Column(Integer, nullable=True)
+    premium_ticket5 = Column(Integer, nullable=True)
+    premium_ticket6 = Column(Integer, nullable=True)
 
-    # Boletos
-    total_tickets = Column(Integer, nullable=True)  # Total de boletos disponibles
-    tickets_sold = Column(Integer, default=0)  # Boletos vendidos
+    total_tickets = Column(Integer, nullable=True)
 
-    # Fechas
-    lottery_date = Column(DateTime, nullable=True)  # Fecha del sorteo
+    tickets_sold_list = Column(ARRAY(String), default=[])
 
-    # Metadatos
-    created_by = Column(String, nullable=True)  # Usuario que creó la rifa
-    updated_by = Column(String, nullable=True)  # Último usuario que modificó
+    lottery_date = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Fecha de creación
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())  # Fecha de última actualización
+    created_by = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 Base.metadata.create_all(bind=engine)

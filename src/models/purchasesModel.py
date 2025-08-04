@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, Float, DateTime, ForeignKey, Integer, String, func, Boolean
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import declarative_base
 from src.db.db import engine
@@ -20,6 +20,9 @@ class Purchase(Base):
     purchase_date = Column(DateTime, default=func.now())                  # Fecha de compra
     raffle_id = Column(String, nullable=False)                          # ID DE Relación con la rifa
     buyer_email = Column(String, nullable=False)                          # Correo del comprador
-
+    full_name = Column(String, nullable=False)                              # Nombre completo del comprador
+    phone_number = Column(String, nullable=False)                           # Teléfono del comprador
+    holder_cta_bank = Column(String, nullable=False)                         # Titular de la cuenta bancaria
+    is_confirmed = Column(Boolean, default=False)                            # Estado de confirmación
 
 Base.metadata.create_all(bind=engine)

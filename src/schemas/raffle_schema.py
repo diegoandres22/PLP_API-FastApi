@@ -13,6 +13,7 @@ class RaffleCreate(BaseModel):
     min_purchase: float  # Mínimo de boletos que se deben comprar
     raffle_status: int  # Estado numérico de la rifa
     state: bool  # Estado activo o inactivo
+
     
     # Premios
     trophy: str  # Premio principal
@@ -26,15 +27,13 @@ class RaffleCreate(BaseModel):
     premium_ticket6: Optional[int]  # Boleto premiado 6
     
     # Boletos
-    total_tickets: Optional[int]  # Total de boletos disponibles
-    tickets_sold: Optional[int] = 0  # Boletos vendidos (por defecto 0)
+    total_tickets: int  # Total de boletos disponibles
 
     # Fechas
-    lottery_date: Optional[datetime]  # Fecha del sorteo
+    lottery_date: datetime  # Fecha del sorteo
 
     # Metadatos
-    created_by: Optional[str]  # Usuario que creó la rifa
-    updated_by: Optional[str]  # Último usuario que modificó
+    created_by: str  # Usuario que creó la rifa
 
 class RaffleUpdate(BaseModel):
     # Información base
@@ -59,8 +58,8 @@ class RaffleUpdate(BaseModel):
 
     # Boletos
     total_tickets: Optional[int]
-    tickets_sold: Optional[int]
-
+    tickets_sold_list: Optional[List[str]]
+    
     # Fechas
     lottery_date: Optional[datetime]
 
@@ -72,8 +71,7 @@ class RaffleOut(RaffleCreate):
     id: UUIDType  # ID único
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    tickets_sold_list: List[str] = []
 
-    # class Config:
-    #     orm_mode = True
-class Config:
-    from_attributes = True
+    class Config:
+        from_attributes = True

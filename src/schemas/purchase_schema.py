@@ -9,6 +9,12 @@ class PurchaseCreate(BaseModel):
     ticket_count: int
     payment_method: str 
     payment_reference: str 
+    full_name: str
+    phone_number: str
+    holder_cta_bank: str
+    
+    
+
 
 class PurchaseResponse(BaseModel):
     id: UUID
@@ -20,6 +26,32 @@ class PurchaseResponse(BaseModel):
     payment_method: str
     payment_ref: str
     purchase_date: datetime
+    full_name: str
+    phone_number: str
+    holder_cta_bank: str
+    is_confirmed: bool
 
-class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
+    
+
+
+class PurchaseConfirmResponse(BaseModel):
+    id: UUID
+    raffle_id: UUID
+    raffle_title: str
+    buyer_email: EmailStr  # mejor email validado y claro
+    ticket_numbers: List[int]
+    total_paid: float
+    payment_method: str
+    payment_ref: str
+    purchase_date: datetime
+    full_name: str
+    phone_number: str
+    holder_cta_bank: str
+    is_confirmed: bool
+
+    model_config = {
+        "from_attributes": True
+    }
