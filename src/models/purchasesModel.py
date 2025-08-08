@@ -1,9 +1,9 @@
+import uuid
 from sqlalchemy import Column, Float, DateTime, ForeignKey, Integer, String, func, Boolean
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import declarative_base
 from src.db.db import engine
 from sqlalchemy.dialects.postgresql import UUID
-import uuid
 
 
 

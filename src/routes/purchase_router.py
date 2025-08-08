@@ -8,8 +8,6 @@ from src.models.purchasesModel import Purchase
 from src.services.purchase_service import confirm_purchase_service
 from src.schemas.purchase_schema import PurchaseConfirmResponse
 
-
-
 router = APIRouter()
 
 @router.put("/purchase/{purchase_id}/confirm", response_model=PurchaseConfirmResponse)
