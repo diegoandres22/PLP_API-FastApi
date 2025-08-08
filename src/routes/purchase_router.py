@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from src.db.deps import get_db 
 from src.schemas.purchase_schema import PurchaseCreate, PurchaseResponse
 from src.services import purchase_service
 from uuid import UUID
 from src.models.purchasesModel import Purchase
-from src.services.purchase_service import confirm_purchase_service
+from src.services.purchase_service import confirm_purchase_service, get_purchase_by_ticket_number
 from src.schemas.purchase_schema import PurchaseConfirmResponse
 
 router = APIRouter()
@@ -50,3 +50,15 @@ def read_purchase(purchase_id: UUID, db: Session = Depends(get_db)):
 def create_purchase_route(purchase: PurchaseCreate, db: Session = Depends(get_db)):
     return purchase_service.create_purchase(db, purchase)
 
+
+
+#############################
+
+
+@router.get("/purchase/by-ticket-number", response_model=PurchaseResponse)
+def get_purchase_by_ticket_number_endpoint(
+    ticket_number: int = Query(..., ge=0, le=9999),
+    db: Session = Depends(get_db)
+):
+    
+    return purchase_service.get_purchase_by_ticket_number(db, ticket_number)

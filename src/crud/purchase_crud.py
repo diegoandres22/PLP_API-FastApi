@@ -32,3 +32,9 @@ def crud_confirm_purchase(db: Session, purchase_id: UUID) -> Purchase:
     db.refresh(purchase)
 
     return purchase
+
+#######################
+
+def crud_get_purchase_by_ticket_number(db: Session, ticket_number: int) -> Purchase | None:
+    # Buscar la compra donde el número esté dentro del arreglo ticket_numbers
+    return db.query(Purchase).filter(Purchase.ticket_numbers.any(ticket_number)).first()

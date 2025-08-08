@@ -10,7 +10,8 @@ from src.crud.purchase_crud import (
     crud_get_all_purchases,
     crud_get_purchase_by_id,
     crud_create_purchase,
-    crud_confirm_purchase
+    crud_confirm_purchase,
+    crud_get_purchase_by_ticket_number
 )
 from src.crud.raffle_crud import (
     get_raffle_by_id, update_raffle_tickets_sold
@@ -229,3 +230,31 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> PurchaseRespo
     is_confirmed=purchase.is_confirmed,
     raffle_title=raffle.title
 )
+
+
+
+
+###################################
+def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseResponse:
+    purchase = crud_get_purchase_by_ticket_number(db, ticket_number)
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Compra con ese número no encontrada")
+
+    raffle = get_raffle_by_id(db, purchase.raffle_id)
+    raffle_title = raffle.title if raffle else ""
+
+    return PurchaseResponse(
+        id=purchase.id,
+        raffle_id=purchase.raffle_id,
+        raffle_title=raffle_title,
+        email=purchase.buyer_email,
+        ticket_numbers=purchase.ticket_numbers,
+        total_paid=purchase.total_paid,
+        payment_method=purchase.payment_method,
+        payment_ref=purchase.payment_ref,
+        purchase_date=purchase.purchase_date,
+        full_name=purchase.full_name,
+        phone_number=purchase.phone_number,
+        holder_cta_bank=purchase.holder_cta_bank,
+        is_confirmed=purchase.is_confirmed,
+    )
