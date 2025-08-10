@@ -24,5 +24,6 @@ class Purchase(Base):
     phone_number = Column(String, nullable=False)                           # Teléfono del comprador
     holder_cta_bank = Column(String, nullable=False)                         # Titular de la cuenta bancaria
     is_confirmed = Column(Boolean, default=False)                            # Estado de confirmación
+    image_url = Column(String, nullable=True)                               # URL de la imagen
 
 Base.metadata.create_all(bind=engine)

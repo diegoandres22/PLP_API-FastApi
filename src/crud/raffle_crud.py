@@ -7,10 +7,17 @@ from typing import List
 
 
 def get_all_raffles(db: Session):
-    return db.query(Raffle).all()
+    raffles = db.query(Raffle).all()
+    for r in raffles:
+        if r.tickets_sold_list:
+            r.tickets_sold_list = sorted(r.tickets_sold_list, key=lambda x: int(x))
+    return raffles
 
 def get_raffle_by_id(db: Session, raffle_id: UUIDType):
-    return db.query(Raffle).filter(Raffle.id == raffle_id).first()
+    raffle = db.query(Raffle).filter(Raffle.id == raffle_id).first()
+    if raffle and raffle.tickets_sold_list:
+        raffle.tickets_sold_list = sorted(raffle.tickets_sold_list, key=lambda x: int(x))
+    return raffle
 
 def create_raffle(db: Session, data: RaffleCreate):
     raffle = Raffle(**data.dict())

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 class PurchaseCreate(BaseModel):
@@ -12,14 +12,13 @@ class PurchaseCreate(BaseModel):
     full_name: str
     phone_number: str
     holder_cta_bank: str
+    image_url: Optional[str] = None
     
-    
-
 
 class PurchaseResponse(BaseModel):
     id: UUID
     raffle_id: UUID
-    raffle_title: str
+    raffle_title: Optional[str] = None
     email: EmailStr
     ticket_numbers: List[int]
     total_paid: float
@@ -30,6 +29,7 @@ class PurchaseResponse(BaseModel):
     phone_number: str
     holder_cta_bank: str
     is_confirmed: bool
+    image_url: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -51,6 +51,7 @@ class PurchaseConfirmResponse(BaseModel):
     phone_number: str
     holder_cta_bank: str
     is_confirmed: bool
+    image_url: Optional[str] = None
 
     model_config = {
         "from_attributes": True

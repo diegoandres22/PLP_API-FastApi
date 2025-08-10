@@ -16,19 +16,65 @@ from src.crud.purchase_crud import (
 from src.crud.raffle_crud import (
     get_raffle_by_id, update_raffle_tickets_sold
 )
+from fastapi import UploadFile
 from email.message import EmailMessage
 import aiosmtplib
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from src.services.gcs_service import upload_file_to_gcs
+
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
+# def get_all_purchases(db: Session):
+#     purchases = crud_get_all_purchases(db)
+#     return [
+#         {
+#             "id": p.id,
+#             "ticket_numbers": p.ticket_numbers,
+#             "total_paid": p.total_paid,
+#             "payment_method": p.payment_method,
+#             "payment_ref": p.payment_ref,
+#             "purchase_date": p.purchase_date,
+#             "buyer_email": p.buyer_email,
+#             "raffle_id": p.raffle_id,
+#             "full_name": p.full_name,
+#             "phone_number": p.phone_number,
+#             "holder_cta_bank": p.holder_cta_bank,
+#             "is_confirmed": p.is_confirmed,
+#             "image_url": p.image_url,  
+#         }
+#         for p in purchases
+#     ]
 
-def get_all_purchases(db: Session):
+def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
+    purchases = crud_get_all_purchases(db)
+    purchases_response = []
+    for p in purchases:
+        purchases_response.append(
+            PurchaseResponse(
+                id=p.id,
+                raffle_id=p.raffle_id,
+                raffle_title=None,  # si quieres omitir el título
+                email=p.buyer_email,
+                ticket_numbers=p.ticket_numbers,
+                total_paid=p.total_paid,
+                payment_method=p.payment_method,
+                payment_ref=p.payment_ref,
+                purchase_date=p.purchase_date,
+                full_name=p.full_name,
+                phone_number=p.phone_number,
+                holder_cta_bank=p.holder_cta_bank,
+                is_confirmed=p.is_confirmed,
+                image_url=p.image_url
+            )
+        )
+    return purchases_response
+# def get_all_purchases(db: Session):
     
-    return crud_get_all_purchases(db)
+#     return crud_get_all_purchases(db)
 
 
 def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
@@ -51,7 +97,8 @@ def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
         full_name=purchase.full_name,
         phone_number=purchase.phone_number,
         holder_cta_bank=purchase.holder_cta_bank,
-        is_confirmed=purchase.is_confirmed
+        is_confirmed=purchase.is_confirmed,
+        image_url=purchase.image_url
     )
     
     
@@ -172,7 +219,7 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID) -> PurchaseCo
 
 
 
-def create_purchase(db: Session, purchase_data: PurchaseCreate) -> PurchaseResponse:
+async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: UploadFile = None) -> PurchaseResponse:
     # Buscar la rifa
     raffle = get_raffle_by_id(db, purchase_data.raffle_id)
     if not raffle:
@@ -194,6 +241,11 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> PurchaseRespo
     available_numbers = set(f"{i:04d}" for i in range(0, total_available)) - sold
     selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
 
+    # Subir la imagen si existe
+    
+    file_bytes = await file.read()
+    image_url = upload_file_to_gcs(file_bytes, file.filename)
+
     # Crear nueva compra
     purchase = Purchase(
     raffle_id=raffle.id,
@@ -206,6 +258,7 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> PurchaseRespo
     full_name=purchase_data.full_name,
     phone_number=purchase_data.phone_number,
     holder_cta_bank=purchase_data.holder_cta_bank,
+    image_url=image_url, #imagen de la compra
     is_confirmed=False  # Inicialmente no confirmado
 )
     purchase = crud_create_purchase(db, purchase)
@@ -228,13 +281,12 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> PurchaseRespo
     phone_number=purchase_data.phone_number,
     holder_cta_bank=purchase_data.holder_cta_bank,
     is_confirmed=purchase.is_confirmed,
+    image_url=image_url,
     raffle_title=raffle.title
 )
 
 
 
-
-###################################
 def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseResponse:
     purchase = crud_get_purchase_by_ticket_number(db, ticket_number)
     if not purchase:
@@ -257,4 +309,6 @@ def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseRe
         phone_number=purchase.phone_number,
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
+        image_url=purchase.image_url 
+
     )
