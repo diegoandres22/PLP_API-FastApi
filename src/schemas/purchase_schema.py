@@ -30,6 +30,8 @@ class PurchaseResponse(BaseModel):
     holder_cta_bank: str
     is_confirmed: bool
     image_url: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+    confirmed_by: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -52,6 +54,8 @@ class PurchaseConfirmResponse(BaseModel):
     holder_cta_bank: str
     is_confirmed: bool
     image_url: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+    confirmed_by: Optional[str] = None
 
     model_config = {
         "from_attributes": True

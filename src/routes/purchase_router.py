@@ -11,37 +11,17 @@ from typing import List
 
 router = APIRouter()
 
-@router.put("/purchase/{purchase_id}/confirm", response_model=PurchaseConfirmResponse)
-async def confirm_purchase_endpoint(purchase_id: UUID, db: Session = Depends(get_db)):
-    return await confirm_purchase_service(db, purchase_id)
+@router.put("/confirm/{purchase_id}", response_model=PurchaseConfirmResponse)
+async def confirm_purchase_endpoint(purchase_id: UUID, confirmed_by: str, db: Session = Depends(get_db)):
+    return await confirm_purchase_service(db, purchase_id, confirmed_by)
 
-# @router.get("/purchases/")
-# def get_purchases(db: Session = Depends(get_db)):
-#     purchases = db.query(Purchase).all()
-#     return {
-#         "Compras": [
-#             {
-#                 "id": str(p.id),
-#                 "ticket_numbers": p.ticket_numbers,
-#                 "total_paid": p.total_paid,
-#                 "payment_method": p.payment_method,
-#                 "payment_ref": p.payment_ref,
-#                 "purchase_date": p.purchase_date.isoformat(),
-#                 "buyer_email": p.buyer_email,
-#                 "raffle_id": str(p.raffle_id),
-#                 "full_name": p.full_name,
-#                 "phone_number": p.phone_number,
-#                 "holder_cta_bank": p.holder_cta_bank,
-#                 "is_confirmed": p.is_confirmed
-#             } for p in purchases
-#         ]
-#     }
-@router.get("/purchases/", response_model=List[PurchaseResponse])
+
+
+@router.get("/all/", response_model=List[PurchaseResponse])
 def get_purchases(db: Session = Depends(get_db)):
     return purchase_service.get_all_purchases_with_details(db)
 
-##################
-@router.get("/purchases/{purchase_id}", response_model=PurchaseResponse)
+@router.get("/{purchase_id}", response_model=PurchaseResponse)
 def read_purchase(purchase_id: UUID, db: Session = Depends(get_db)):
     return purchase_service.get_purchase_by_id(db, purchase_id)
 
@@ -72,12 +52,9 @@ async def create_purchase_route(
     # Llamar al servicio que maneja la creación y subida de imagen
     return await purchase_service.create_purchase(db, purchase_data, file)
 
-# @router.post("/", response_model=PurchaseResponse)
-# def create_purchase_route(purchase: PurchaseCreate, db: Session = Depends(get_db)):
-#     return purchase_service.create_purchase(db, purchase)
 
 
-@router.get("/purchase/by-ticket-number", response_model=PurchaseResponse)
+@router.get("/by-ticket-number", response_model=PurchaseResponse)
 def get_purchase_by_ticket_number_endpoint(
     ticket_number: int = Query(..., ge=0, le=9999),
     db: Session = Depends(get_db)

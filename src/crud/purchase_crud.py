@@ -4,6 +4,7 @@ from src.models.purchasesModel import Purchase
 from uuid import UUID
 from src.schemas.purchase_schema import PurchaseCreate, PurchaseConfirmResponse
 from fastapi import HTTPException
+from datetime import datetime, timedelta
 
 
 def crud_get_purchase_by_id(db: Session, purchase_id: UUID) -> Purchase | None:
@@ -19,7 +20,7 @@ def crud_create_purchase(db: Session, purchase: Purchase) -> Purchase:
     return purchase
 
 
-def crud_confirm_purchase(db: Session, purchase_id: UUID) -> Purchase:
+def crud_confirm_purchase(db: Session, purchase_id: UUID, confirmed_by: str) -> Purchase:
     purchase = db.query(Purchase).filter(Purchase.id == purchase_id).first()
     if not purchase:
         raise HTTPException(status_code=404, detail="Compra no encontrada")
@@ -28,6 +29,9 @@ def crud_confirm_purchase(db: Session, purchase_id: UUID) -> Purchase:
         raise HTTPException(status_code=400, detail="La compra ya está confirmada")
     
     purchase.is_confirmed = True
+    utc_now = datetime.utcnow()
+    purchase.confirmed_at = utc_now - timedelta(hours=4)
+    purchase.confirmed_by = confirmed_by
     db.commit()
     db.refresh(purchase)
 

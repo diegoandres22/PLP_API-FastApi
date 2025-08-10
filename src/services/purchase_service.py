@@ -28,26 +28,6 @@ from src.services.gcs_service import upload_file_to_gcs
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-# def get_all_purchases(db: Session):
-#     purchases = crud_get_all_purchases(db)
-#     return [
-#         {
-#             "id": p.id,
-#             "ticket_numbers": p.ticket_numbers,
-#             "total_paid": p.total_paid,
-#             "payment_method": p.payment_method,
-#             "payment_ref": p.payment_ref,
-#             "purchase_date": p.purchase_date,
-#             "buyer_email": p.buyer_email,
-#             "raffle_id": p.raffle_id,
-#             "full_name": p.full_name,
-#             "phone_number": p.phone_number,
-#             "holder_cta_bank": p.holder_cta_bank,
-#             "is_confirmed": p.is_confirmed,
-#             "image_url": p.image_url,  
-#         }
-#         for p in purchases
-#     ]
 
 def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
     purchases = crud_get_all_purchases(db)
@@ -72,9 +52,6 @@ def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
             )
         )
     return purchases_response
-# def get_all_purchases(db: Session):
-    
-#     return crud_get_all_purchases(db)
 
 
 def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
@@ -106,8 +83,8 @@ def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
     
 
 
-async def confirm_purchase_service(db: Session, purchase_id: UUID) -> PurchaseConfirmResponse:
-    purchase = crud_confirm_purchase(db, purchase_id)
+async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by: str) -> PurchaseConfirmResponse:
+    purchase = crud_confirm_purchase(db, purchase_id, confirmed_by)
     raffle = get_raffle_by_id(db, purchase.raffle_id)
     
     ticket_numbers_str = ", ".join(str(n) for n in purchase.ticket_numbers)
@@ -202,6 +179,8 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID) -> PurchaseCo
         phone_number=purchase.phone_number,
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
+        confirmed_at=purchase.confirmed_at,      # <-- agregado
+        confirmed_by=purchase.confirmed_by  
     )
     
     
