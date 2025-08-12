@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 
 class PurchaseCreate(BaseModel):
-    email: EmailStr
+    buyer_email: EmailStr 
     raffle_id: UUID
     ticket_count: int
     payment_method: str 
@@ -19,11 +19,11 @@ class PurchaseResponse(BaseModel):
     id: UUID
     raffle_id: UUID
     raffle_title: Optional[str] = None
-    email: EmailStr
+    buyer_email: EmailStr 
     ticket_numbers: List[int]
     total_paid: float
     payment_method: str
-    payment_ref: str
+    payment_reference: str
     purchase_date: datetime
     full_name: str
     phone_number: str
@@ -43,11 +43,11 @@ class PurchaseConfirmResponse(BaseModel):
     id: UUID
     raffle_id: UUID
     raffle_title: str
-    buyer_email: EmailStr  # mejor email validado y claro
+    buyer_email: EmailStr 
     ticket_numbers: List[int]
     total_paid: float
     payment_method: str
-    payment_ref: str
+    payment_reference: str
     purchase_date: datetime
     full_name: str
     phone_number: str

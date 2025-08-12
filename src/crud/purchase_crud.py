@@ -5,6 +5,44 @@ from uuid import UUID
 from src.schemas.purchase_schema import PurchaseCreate, PurchaseConfirmResponse
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from sqlalchemy import or_, and_, any_
+from typing import List
+
+#######################
+
+def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
+    one_day_ago = datetime.utcnow() - timedelta(days=1)
+    return (
+        db.query(Purchase)
+        .filter(
+            or_(
+                Purchase.is_confirmed == False,
+                Purchase.is_confirmed == None,
+                and_(
+                    Purchase.is_confirmed == True,
+                    Purchase.confirmed_at >= one_day_ago
+                )
+            )
+        )
+        .order_by(Purchase.purchase_date.desc())
+        .all()
+    )
+#######################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def crud_get_purchase_by_id(db: Session, purchase_id: UUID) -> Purchase | None:
@@ -37,8 +75,7 @@ def crud_confirm_purchase(db: Session, purchase_id: UUID, confirmed_by: str) -> 
 
     return purchase
 
-#######################
 
 def crud_get_purchase_by_ticket_number(db: Session, ticket_number: int) -> Purchase | None:
-    # Buscar la compra donde el número esté dentro del arreglo ticket_numbers
-    return db.query(Purchase).filter(Purchase.ticket_numbers.any(ticket_number)).first()
+    return db.query(Purchase).filter(ticket_number == any_(Purchase.ticket_numbers)).first()
+

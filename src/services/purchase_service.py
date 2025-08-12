@@ -11,11 +11,14 @@ from src.crud.purchase_crud import (
     crud_get_purchase_by_id,
     crud_create_purchase,
     crud_confirm_purchase,
-    crud_get_purchase_by_ticket_number
+    crud_get_purchase_by_ticket_number,
+    crud_get_recent_or_unconfirmed_purchases,  
 )
 from src.crud.raffle_crud import (
-    get_raffle_by_id, update_raffle_tickets_sold
+    get_raffle_by_id,
+    update_raffle_tickets_sold
 )
+
 from fastapi import UploadFile
 from email.message import EmailMessage
 import aiosmtplib
@@ -27,6 +30,27 @@ from src.services.gcs_service import upload_file_to_gcs
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+################
+
+def get_recent_or_unconfirmed_purchases(db: Session) -> List[PurchaseResponse]:
+    purchases = crud_get_recent_or_unconfirmed_purchases(db)
+    return [
+        PurchaseResponse.from_orm(purchase)
+        for purchase in purchases
+    ]
+#################
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
@@ -37,18 +61,20 @@ def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
             PurchaseResponse(
                 id=p.id,
                 raffle_id=p.raffle_id,
-                raffle_title=None,  # si quieres omitir el título
-                email=p.buyer_email,
+                buyer_email=p.buyer_email,
                 ticket_numbers=p.ticket_numbers,
                 total_paid=p.total_paid,
                 payment_method=p.payment_method,
-                payment_ref=p.payment_ref,
+                payment_reference=p.payment_reference,
                 purchase_date=p.purchase_date,
                 full_name=p.full_name,
                 phone_number=p.phone_number,
                 holder_cta_bank=p.holder_cta_bank,
                 is_confirmed=p.is_confirmed,
-                image_url=p.image_url
+                image_url=p.image_url,
+                confirmed_at=p.confirmed_at, 
+                confirmed_by=p.confirmed_by 
+                
             )
         )
     return purchases_response
@@ -65,17 +91,19 @@ def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
         id=purchase.id,
         raffle_id=purchase.raffle_id,
         raffle_title=raffle.title,
-        email=purchase.buyer_email,
+        buyer_email=purchase.buyer_email,
         ticket_numbers=purchase.ticket_numbers,
         total_paid=purchase.total_paid,
         payment_method=purchase.payment_method,
-        payment_ref=purchase.payment_ref,
+        payment_reference=purchase.payment_reference,
         purchase_date=purchase.purchase_date,
         full_name=purchase.full_name,
         phone_number=purchase.phone_number,
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
-        image_url=purchase.image_url
+        image_url=purchase.image_url, 
+        confirmed_at=purchase.confirmed_at, 
+        confirmed_by=purchase.confirmed_by 
     )
     
     
@@ -136,7 +164,7 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
         <div class="info"><span class="highlight">Boletos:</span> {ticket_numbers_str}</div>
         <div class="info"><span class="highlight">Total pagado:</span> ${purchase.total_paid}</div>
         <div class="info"><span class="highlight">Método de pago:</span> {purchase.payment_method}</div>
-        <div class="info"><span class="highlight">Referencia:</span> {purchase.payment_ref}</div>
+        <div class="info"><span class="highlight">Referencia:</span> {purchase.payment_reference}</div>
         <div class="info"><span class="highlight">Fecha:</span> {purchase.purchase_date.strftime('%Y-%m-%d %H:%M:%S')}</div>
         <div class="info"><span class="highlight">Titular de la cuenta:</span> {purchase.holder_cta_bank}</div>
         <div class="footer">
@@ -173,7 +201,7 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
         ticket_numbers=purchase.ticket_numbers,
         total_paid=purchase.total_paid,
         payment_method=purchase.payment_method,
-        payment_ref=purchase.payment_ref,
+        payment_reference=purchase.payment_reference,
         purchase_date=purchase.purchase_date,
         full_name=purchase.full_name,
         phone_number=purchase.phone_number,
@@ -217,13 +245,16 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
         raise HTTPException(status_code=400, detail="No hay suficientes boletos disponibles")
 
     # Generar boletos únicos
-    available_numbers = set(f"{i:04d}" for i in range(0, total_available)) - sold
+    available_numbers = set(range(0, total_available)) - sold  # conjunto de enteros
     selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
+    # available_numbers = set(f"{i:04d}" for i in range(0, total_available)) - sold
+    # selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
 
     # Subir la imagen si existe
     
     file_bytes = await file.read()
     image_url = upload_file_to_gcs(file_bytes, file.filename)
+    # image_url = upload_file_to_gcs(file_bytes, file.filename)
 
     # Crear nueva compra
     purchase = Purchase(
@@ -231,9 +262,9 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
     ticket_numbers=selected_numbers,
     total_paid=purchase_data.ticket_count * raffle.ticket_price,
     payment_method=purchase_data.payment_method,
-    payment_ref=purchase_data.payment_reference,
+    payment_reference=purchase_data.payment_reference,
     purchase_date=datetime.utcnow() - timedelta(hours=4),  # Restar 4 horas manualmente para hora Caracas
-    buyer_email=purchase_data.email,
+    buyer_email=purchase_data.buyer_email,
     full_name=purchase_data.full_name,
     phone_number=purchase_data.phone_number,
     holder_cta_bank=purchase_data.holder_cta_bank,
@@ -250,11 +281,11 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
     return PurchaseResponse(
     id=purchase.id,
     raffle_id=raffle.id,
-    email=purchase_data.email,
+    buyer_email=purchase_data.buyer_email,
     ticket_numbers=selected_numbers,
     total_paid=purchase.total_paid,
     payment_method=purchase.payment_method,
-    payment_ref=purchase.payment_ref,
+    payment_reference=purchase.payment_reference,
     purchase_date=purchase.purchase_date,
     full_name=purchase_data.full_name,
     phone_number=purchase_data.phone_number,
@@ -278,16 +309,18 @@ def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseRe
         id=purchase.id,
         raffle_id=purchase.raffle_id,
         raffle_title=raffle_title,
-        email=purchase.buyer_email,
+        buyer_email=purchase.buyer_email,
         ticket_numbers=purchase.ticket_numbers,
         total_paid=purchase.total_paid,
         payment_method=purchase.payment_method,
-        payment_ref=purchase.payment_ref,
+        payment_reference=purchase.payment_reference,
         purchase_date=purchase.purchase_date,
         full_name=purchase.full_name,
         phone_number=purchase.phone_number,
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
-        image_url=purchase.image_url 
+        image_url=purchase.image_url,
+        confirmed_at=purchase.confirmed_at, 
+        confirmed_by=purchase.confirmed_by 
 
     )

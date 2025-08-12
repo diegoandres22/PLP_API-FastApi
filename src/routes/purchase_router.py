@@ -5,17 +5,43 @@ from src.schemas.purchase_schema import PurchaseCreate, PurchaseResponse
 from src.services import purchase_service
 from uuid import UUID
 from src.models.purchasesModel import Purchase
-from src.services.purchase_service import confirm_purchase_service, get_purchase_by_ticket_number
+from src.services.purchase_service import (
+    confirm_purchase_service,
+    get_purchase_by_ticket_number,
+    get_recent_or_unconfirmed_purchases 
+)
+
 from src.schemas.purchase_schema import PurchaseConfirmResponse
 from typing import List
 
 router = APIRouter()
 
+
+
+
+##############
+
+@router.get("/confirm_Purchases", response_model=List[PurchaseResponse])
+def get_pending_or_recent_purchases(db: Session = Depends(get_db)):
+    return purchase_service.get_recent_or_unconfirmed_purchases(db)
+##################
+
+
+
+@router.get("/by-ticket-number", response_model=PurchaseResponse)
+def get_purchase_by_ticket_number_endpoint(
+    ticket_number: int = Query(..., ge=0, le=9999),
+    db: Session = Depends(get_db)
+):
+    
+    return purchase_service.get_purchase_by_ticket_number(db, ticket_number)
+
+
+
+
 @router.put("/confirm/{purchase_id}", response_model=PurchaseConfirmResponse)
 async def confirm_purchase_endpoint(purchase_id: UUID, confirmed_by: str, db: Session = Depends(get_db)):
     return await confirm_purchase_service(db, purchase_id, confirmed_by)
-
-
 
 @router.get("/all/", response_model=List[PurchaseResponse])
 def get_purchases(db: Session = Depends(get_db)):
@@ -27,7 +53,7 @@ def read_purchase(purchase_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=PurchaseResponse)
 async def create_purchase_route(
-    email: str = Form(...),
+    buyer_email: str = Form(...),
     raffle_id: UUID = Form(...),
     ticket_count: int = Form(...),
     payment_method: str = Form(...),
@@ -40,7 +66,7 @@ async def create_purchase_route(
 ):
     # Crear objeto PurchaseCreate desde los campos del formulario
     purchase_data = PurchaseCreate(
-        email=email,
+        buyer_email=buyer_email,
         raffle_id=raffle_id,
         ticket_count=ticket_count,
         payment_method=payment_method,
@@ -54,10 +80,3 @@ async def create_purchase_route(
 
 
 
-@router.get("/by-ticket-number", response_model=PurchaseResponse)
-def get_purchase_by_ticket_number_endpoint(
-    ticket_number: int = Query(..., ge=0, le=9999),
-    db: Session = Depends(get_db)
-):
-    
-    return purchase_service.get_purchase_by_ticket_number(db, ticket_number)

@@ -16,9 +16,9 @@ class Purchase(Base):
     ticket_numbers = Column(ARRAY(Integer), nullable=False)               # Números comprados
     total_paid = Column(Float, nullable=False)                            # Monto pagado
     payment_method = Column(String, nullable=False)                       # Tipo: Transferencia, Zelle...
-    payment_ref = Column(String, nullable=False)                           # Referencia de pago
+    payment_reference = Column(String, nullable=False)                           # Referencia de pago
     purchase_date = Column(DateTime, default=func.now())                  # Fecha de compra
-    raffle_id = Column(String, nullable=False)                             # ID DE Relación con la rifa
+    raffle_id = Column(UUID(as_uuid=True), nullable=False)                             # ID DE Relación con la rifa
     buyer_email = Column(String, nullable=False)                          # Correo del comprador
     full_name = Column(String, nullable=False)                              # Nombre completo del comprador
     phone_number = Column(String, nullable=False)                           # Teléfono del comprador

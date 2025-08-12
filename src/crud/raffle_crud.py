@@ -19,12 +19,13 @@ def get_raffle_by_id(db: Session, raffle_id: UUIDType):
         raffle.tickets_sold_list = sorted(raffle.tickets_sold_list, key=lambda x: int(x))
     return raffle
 
-def create_raffle(db: Session, data: RaffleCreate):
-    raffle = Raffle(**data.dict())
+def crud_create_raffle(db: Session, data: dict):
+    raffle = Raffle(**data)
     db.add(raffle)
     db.commit()
     db.refresh(raffle)
     return raffle
+
 
 def update_raffle(db: Session, raffle_id: UUIDType, data: RaffleUpdate):
     raffle = get_raffle_by_id(db, raffle_id)
