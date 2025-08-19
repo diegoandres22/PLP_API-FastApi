@@ -15,4 +15,7 @@ app.include_router(raffle.router, prefix="/raffle", tags=["Raffle"])
 app.include_router(purchase.router, prefix="/purchase", tags=["Purchase"])
 app.include_router(bank_account.router, prefix="/bank-accounts", tags=["Bank Accounts"])
 
-
+# Ruta de prueba para verificar que la app está corriendo
+@app.get("/")
+def root():
+    return {"message": "Aplicación Patea la Perola iniciada exitosamente"}
