@@ -24,28 +24,6 @@ class RaffleCreate(BaseModel):
     lottery_date: datetime
     created_by: str
 
-
-# class RaffleCreate(BaseModel):
-#     title: str  # Título de la rifa
-#     description: str  # Descripción general de la rifa
-#     image: str  # URL de la imagen de la rifa
-#     ticket_price: float  # Precio de cada boleto
-#     min_purchase: float  # Mínimo de boletos que se deben comprar
-#     raffle_status: int  # Estado numérico de la rifa
-#     state: bool  # Estado activo o inactivo
-#     trophy: str  # Premio principal
-#     secondPrize: str  # Segundo premio
-#     additionalPrize: str  # Premios adicionales
-#     premium_ticket1: Optional[int]  # Boleto premiado 1
-#     premium_ticket2: Optional[int]  # Boleto premiado 2
-#     premium_ticket3: Optional[int]  # Boleto premiado 3
-#     premium_ticket4: Optional[int]  # Boleto premiado 4
-#     premium_ticket5: Optional[int]  # Boleto premiado 5
-#     premium_ticket6: Optional[int]  # Boleto premiado 6
-#     total_tickets: int  # Total de boletos disponibles
-#     lottery_date: datetime  # Fecha del sorteo
-#     created_by: str  # Usuario que creó la rifa
-
 class RaffleUpdate(BaseModel):
     # Información base
     title: Optional[str]

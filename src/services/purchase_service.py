@@ -30,7 +30,6 @@ from src.services.gcs_service import upload_file_to_gcs
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-################
 
 def get_recent_or_unconfirmed_purchases(db: Session) -> List[PurchaseResponse]:
     purchases = crud_get_recent_or_unconfirmed_purchases(db)
@@ -38,18 +37,6 @@ def get_recent_or_unconfirmed_purchases(db: Session) -> List[PurchaseResponse]:
         PurchaseResponse.from_orm(purchase)
         for purchase in purchases
     ]
-#################
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -105,9 +92,6 @@ def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
         confirmed_at=purchase.confirmed_at, 
         confirmed_by=purchase.confirmed_by 
     )
-    
-    
-    
     
 
 
@@ -213,50 +197,27 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
     
     
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: UploadFile = None) -> PurchaseResponse:
-    # Buscar la rifa
     raffle = get_raffle_by_id(db, purchase_data.raffle_id)
     if not raffle:
         raise HTTPException(status_code=404, detail="Rifa no encontrada")
 
-    # Validar compra mínima
     if purchase_data.ticket_count < raffle.min_purchase:
         raise HTTPException(status_code=400, detail=f"Debe comprar al menos {raffle.min_purchase} boletos")
 
-    # Inicializar lista de boletos vendidos
     sold = set(raffle.tickets_sold_list or [])
     total_available = 9999
 
-    # Validar disponibilidad de boletos
     if len(sold) + purchase_data.ticket_count > total_available:
         raise HTTPException(status_code=400, detail="No hay suficientes boletos disponibles")
 
-    # Generar boletos únicos
     available_numbers = set(range(0, total_available)) - sold  # conjunto de enteros
     selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
-    # available_numbers = set(f"{i:04d}" for i in range(0, total_available)) - sold
-    # selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
 
-    # Subir la imagen si existe
     
     file_bytes = await file.read()
     image_url = upload_file_to_gcs(file_bytes, file.filename)
-    # image_url = upload_file_to_gcs(file_bytes, file.filename)
 
-    # Crear nueva compra
     purchase = Purchase(
     raffle_id=raffle.id,
     ticket_numbers=selected_numbers,
@@ -273,11 +234,9 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
 )
     purchase = crud_create_purchase(db, purchase)
 
-    # Actualizar boletos vendidos en la rifa
     updated_sold = list(sold.union(set(selected_numbers)))
     update_raffle_tickets_sold(db, raffle, updated_sold)
 
-    # Respuesta
     return PurchaseResponse(
     id=purchase.id,
     raffle_id=raffle.id,
@@ -294,7 +253,6 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
     image_url=image_url,
     raffle_title=raffle.title
 )
-
 
 
 def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseResponse:

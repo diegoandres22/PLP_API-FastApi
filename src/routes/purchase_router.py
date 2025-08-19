@@ -17,15 +17,9 @@ from typing import List
 router = APIRouter()
 
 
-
-
-##############
-
 @router.get("/confirm_Purchases", response_model=List[PurchaseResponse])
 def get_pending_or_recent_purchases(db: Session = Depends(get_db)):
     return purchase_service.get_recent_or_unconfirmed_purchases(db)
-##################
-
 
 
 @router.get("/by-ticket-number", response_model=PurchaseResponse)
@@ -35,8 +29,6 @@ def get_purchase_by_ticket_number_endpoint(
 ):
     
     return purchase_service.get_purchase_by_ticket_number(db, ticket_number)
-
-
 
 
 @router.put("/confirm/{purchase_id}", response_model=PurchaseConfirmResponse)
