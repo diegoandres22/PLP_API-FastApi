@@ -2,13 +2,24 @@ from fastapi import FastAPI
 from src.routes import raffle_router as raffle 
 from src.routes import purchase_router as purchase
 from src.routes import bank_account_route as bank_account
-
+from fastapi.middleware.cors import CORSMiddleware
 
 
 
 app = FastAPI()
 
+origins = [
+    "http://localhost:3000",  # front local
+    "https://patealaperola.vercel.app",  # front deployado
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # o ["*"] para permitir todos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 app.include_router(raffle.router, prefix="/raffle", tags=["Raffle"])
