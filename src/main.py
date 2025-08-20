@@ -1,18 +1,21 @@
-from fastapi import FastAPI
-from src.db.db import session
-from src.models.todo import Todo
+from fastapi import FastAPI 
+from src.routes import raffle_router as raffle 
+from src.routes import purchase_router as purchase
+from src.routes import bank_account_route as bank_account
+
+
+
 
 app = FastAPI()
 
-@app.post("/")
-async def create_todo(text: str, is_done: bool = False):
-
-    todo = Todo(text=text, is_done=is_done)
-    session.add(todo)
-    session.commit()
-    return { "Todo creado": todo.text }
 
 
+
+app.include_router(raffle.router, prefix="/raffle", tags=["Raffle"])
+app.include_router(purchase.router, prefix="/purchase", tags=["Purchase"])
+app.include_router(bank_account.router, prefix="/bank-accounts", tags=["Bank Accounts"])
+
+# Ruta de prueba para verificar que la app está corriendo
 @app.get("/")
-def read_root():
-    return {"Hello World"}
+def root():
+    return {"message": "Aplicación Patea la Perola iniciada exitosamente"}
