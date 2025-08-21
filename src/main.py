@@ -11,7 +11,7 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",  # front local
     "https://patealaperola.vercel.app",  # front deployado
-    "https://plpadmin.vercel.app/Inicio"
+    "https://plpadmin.vercel.app"
 ]
 
 app.add_middleware(
