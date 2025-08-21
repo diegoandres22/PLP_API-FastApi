@@ -22,10 +22,6 @@ def create_raffle(data: RaffleCreate, db: Session, image_url: str):
     return {"Rifa creada": {"id": raffle.id, "title": raffle.title}}
 
 
-# def create_raffle(data: RaffleCreate, db: Session):
-#     raffle = crud_create_raffle(db, data)
-#     return {"Rifa creada": {"id": raffle.id, "title": raffle.title}}
-
 def get_raffle_by_id_endpoint(db: Session, raffle_id: UUIDType):
     raffle = get_raffle_by_id(db, raffle_id)
     if raffle:
