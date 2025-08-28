@@ -1,20 +1,43 @@
 from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from src.db.deps import get_db 
-from src.schemas.purchase_schema import PurchaseCreate, PurchaseResponse
+from src.schemas.purchase_schema import PurchaseCreate, PurchaseResponse, TicketsByRaffleResponse
 from src.services import purchase_service
 from uuid import UUID
 from src.models.purchasesModel import Purchase
 from src.services.purchase_service import (
     confirm_purchase_service,
     get_purchase_by_ticket_number,
-    get_recent_or_unconfirmed_purchases 
+    get_recent_or_unconfirmed_purchases,
+    get_ticket_numbers_by_email
 )
 
 from src.schemas.purchase_schema import PurchaseConfirmResponse
 from typing import List
 
 router = APIRouter()
+
+#######################################
+
+@router.get("/tickets-by-email/", response_model=List[TicketsByRaffleResponse])
+def get_tickets_by_email(
+    email: str = Query(..., description="Correo del comprador"),
+    db: Session = Depends(get_db)
+):
+    return get_ticket_numbers_by_email(db, email)
+
+
+#########################################
+
+
+
+
+
+
+
+
+
+
 
 
 @router.get("/confirm_Purchases", response_model=List[PurchaseResponse])

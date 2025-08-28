@@ -1,6 +1,7 @@
 
 from sqlalchemy.orm import Session
 from src.models.purchasesModel import Purchase
+from src.models.raffleModel import Raffle
 from uuid import UUID
 from src.schemas.purchase_schema import PurchaseCreate, PurchaseConfirmResponse
 from fastapi import HTTPException
@@ -8,7 +9,57 @@ from datetime import datetime, timedelta
 from sqlalchemy import or_, and_, any_
 from typing import List
 
-#######################
+
+########################
+# def crud_get_ticket_numbers_by_email(db: Session, email: str) -> list[int]:
+#     purchases = (
+#         db.query(Purchase)
+#         .filter(Purchase.buyer_email == email, Purchase.is_confirmed == True)
+#         .all()
+#     )
+
+#     ticket_numbers: list[int] = []
+#     for p in purchases:
+#         ticket_numbers.extend(p.ticket_numbers)
+
+#     return ticket_numbers
+def crud_get_ticket_numbers_by_email(db: Session, email: str) -> list[dict]:
+
+    # Obtener todas las rifas activas
+    active_raffles = db.query(Raffle).filter(Raffle.raffle_status == 1).all()
+    active_raffle_ids = {r.id for r in active_raffles}
+
+    # Obtener compras confirmadas del usuario
+    purchases = (
+        db.query(Purchase)
+        .filter(Purchase.buyer_email == email, Purchase.is_confirmed == True)
+        .all()
+    )
+
+    result = []
+    for raffle_id in active_raffle_ids:
+        # Filtrar las compras que pertenecen a esta rifa activa
+        raffle_tickets = [
+            ticket
+            for p in purchases if p.raffle_id == raffle_id
+            for ticket in p.ticket_numbers
+        ]
+        if raffle_tickets:  # Solo agregar si hay números
+            result.append({
+                "raffle_id": raffle_id,
+                "ticket_numbers": raffle_tickets
+            })
+
+    return result
+
+#########################################
+
+
+
+
+
+
+
 
 def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
     one_day_ago = datetime.utcnow() - timedelta(days=1)
@@ -27,23 +78,6 @@ def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
         .order_by(Purchase.purchase_date.desc())
         .all()
     )
-#######################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def crud_get_purchase_by_id(db: Session, purchase_id: UUID) -> Purchase | None:
     return db.query(Purchase).filter(Purchase.id == purchase_id).first()

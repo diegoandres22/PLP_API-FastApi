@@ -13,10 +13,12 @@ from src.crud.purchase_crud import (
     crud_confirm_purchase,
     crud_get_purchase_by_ticket_number,
     crud_get_recent_or_unconfirmed_purchases,  
+    crud_get_ticket_numbers_by_email
+
 )
 from src.crud.raffle_crud import (
     get_raffle_by_id,
-    update_raffle_tickets_sold
+    update_raffle_tickets_sold,
 )
 
 from fastapi import UploadFile
@@ -30,6 +32,23 @@ from src.services.gcs_service import upload_file_to_gcs
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+
+#######################################
+
+def get_ticket_numbers_by_email(db: Session, email: str) -> list[int]:
+    return crud_get_ticket_numbers_by_email(db, email)
+
+
+#############################################
+
+
+
+
+
+
+
+
 
 def get_recent_or_unconfirmed_purchases(db: Session) -> List[PurchaseResponse]:
     purchases = crud_get_recent_or_unconfirmed_purchases(db)

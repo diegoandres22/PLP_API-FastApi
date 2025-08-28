@@ -15,6 +15,10 @@ class PurchaseCreate(BaseModel):
     image_url: Optional[str] = None
     
 
+class TicketsByRaffleResponse(BaseModel):
+    raffle_id: UUID
+    ticket_numbers: List[int]    
+
 class PurchaseResponse(BaseModel):
     id: UUID
     raffle_id: UUID
