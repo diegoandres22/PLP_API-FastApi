@@ -11,9 +11,9 @@ class BankAccount(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pay_method = Column(String, nullable=False)  
-    holder_name_cta = Column(String, nullable=False)
-    document_name = Column(Float, nullable=False)
-    number_cta_1 = Column(Float, nullable=False)
+    holder_name_cta = Column(String, nullable=True)
+    document_name = Column(Float, nullable=True)
+    number_cta_1 = Column(Float, nullable=True)
     number_cta_2 = Column(String, nullable=True)
     email_cta = Column(String, nullable=True)
     is_active = Column(Boolean, default=False)
