@@ -8,7 +8,7 @@ import os
 # Leer entorno y whitelist desde variables de entorno
 ENVIRONMENT = os.getenv("ENVIRONMENT", "")
 WHITELISTED_IPS = os.getenv("WHITELISTED_IPS", "").split(",")
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
 app = FastAPI()
 
