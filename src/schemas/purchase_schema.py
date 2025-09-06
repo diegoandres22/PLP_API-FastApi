@@ -32,7 +32,7 @@ class PurchaseResponse(BaseModel):
     full_name: str
     phone_number: str
     holder_cta_bank: str
-    is_confirmed: bool
+    is_confirmed: Optional[bool] = None
     image_url: Optional[str] = None
     confirmed_at: Optional[datetime] = None
     confirmed_by: Optional[str] = None
