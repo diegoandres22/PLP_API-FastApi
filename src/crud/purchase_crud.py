@@ -41,16 +41,44 @@ def crud_get_ticket_numbers_by_email(db: Session, email: str) -> list[dict]:
     return result
 
 
+# def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
+#     one_day_ago = datetime.utcnow() - timedelta(days=1)
+#     return (
+#         db.query(Purchase)
+#         .filter(
+#             or_(
+#                 Purchase.is_confirmed == False,
+#                 Purchase.is_confirmed == None,
+#                 and_(
+#                     Purchase.is_confirmed == True,
+#                     Purchase.confirmed_at >= one_day_ago
+#                 )
+#             )
+#         )
+#         .order_by(Purchase.purchase_date.desc())
+#         .all()
+#     )
 def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
     one_day_ago = datetime.utcnow() - timedelta(days=1)
+
     return (
         db.query(Purchase)
         .filter(
             or_(
-                Purchase.is_confirmed == False,
+                # Pendientes
                 Purchase.is_confirmed == None,
+                
+                # Aprobados recientes
                 and_(
                     Purchase.is_confirmed == True,
+                    Purchase.confirmed_at != None,
+                    Purchase.confirmed_at >= one_day_ago
+                ),
+                
+                # Rechazados recientes
+                and_(
+                    Purchase.is_confirmed == False,
+                    Purchase.confirmed_at != None,
                     Purchase.confirmed_at >= one_day_ago
                 )
             )
@@ -59,6 +87,8 @@ def crud_get_recent_or_unconfirmed_purchases(db: Session) -> List[Purchase]:
         .all()
     )
 
+
+    ######################
 def crud_get_purchase_by_id(db: Session, purchase_id: UUID) -> Purchase | None:
     return db.query(Purchase).filter(Purchase.id == purchase_id).first()
 
