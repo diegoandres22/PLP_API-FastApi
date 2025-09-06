@@ -9,7 +9,8 @@ from src.services.purchase_service import (
     confirm_purchase_service,
     get_purchase_by_ticket_number,
     get_recent_or_unconfirmed_purchases,
-    get_ticket_numbers_by_email
+    get_ticket_numbers_by_email,
+    put_decline_purchase_service
 )
 
 from src.schemas.purchase_schema import PurchaseConfirmResponse
@@ -17,7 +18,6 @@ from typing import List
 
 router = APIRouter()
 
-#######################################
 
 @router.get("/tickets-by-email/", response_model=List[TicketsByRaffleResponse])
 def get_tickets_by_email(
@@ -25,19 +25,6 @@ def get_tickets_by_email(
     db: Session = Depends(get_db)
 ):
     return get_ticket_numbers_by_email(db, email)
-
-
-#########################################
-
-
-
-
-
-
-
-
-
-
 
 
 @router.get("/confirm_Purchases", response_model=List[PurchaseResponse])
@@ -54,9 +41,16 @@ def get_purchase_by_ticket_number_endpoint(
     return purchase_service.get_purchase_by_ticket_number(db, ticket_number)
 
 
+#########################################
 @router.put("/confirm/{purchase_id}", response_model=PurchaseConfirmResponse)
 async def confirm_purchase_endpoint(purchase_id: UUID, confirmed_by: str, db: Session = Depends(get_db)):
     return await confirm_purchase_service(db, purchase_id, confirmed_by)
+
+
+@router.put("/decline/{purchase_id}", response_model=PurchaseConfirmResponse)
+async def decline_purchase_endpoint(purchase_id: UUID, decline_by: str, db: Session = Depends(get_db)):
+    return await put_decline_purchase_service(db, purchase_id, decline_by)
+#######################################
 
 @router.get("/all/", response_model=List[PurchaseResponse])
 def get_purchases(db: Session = Depends(get_db)):

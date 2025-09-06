@@ -23,7 +23,7 @@ class Purchase(Base):
     full_name = Column(String, nullable=False)                              # Nombre completo del comprador
     phone_number = Column(String, nullable=False)                           # Teléfono del comprador
     holder_cta_bank = Column(String, nullable=False)                         # Titular de la cuenta bancaria
-    is_confirmed = Column(Boolean, default=False)                            # Estado de confirmación
+    is_confirmed = Column(Boolean, nullable=True, default=None)
     image_url = Column(String, nullable=True)                               # URL de la imagen
     confirmed_at = Column(DateTime, nullable=True)                     #fecha de confirmación
     confirmed_by = Column(String, nullable=True)                            #usuario que confirmó

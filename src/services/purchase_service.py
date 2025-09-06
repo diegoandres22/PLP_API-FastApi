@@ -13,8 +13,8 @@ from src.crud.purchase_crud import (
     crud_confirm_purchase,
     crud_get_purchase_by_ticket_number,
     crud_get_recent_or_unconfirmed_purchases,  
-    crud_get_ticket_numbers_by_email
-
+    crud_get_ticket_numbers_by_email,
+    crud_decline_purchase
 )
 from src.crud.raffle_crud import (
     get_raffle_by_id,
@@ -112,7 +112,7 @@ def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
         confirmed_by=purchase.confirmed_by 
     )
     
-
+########################################
 
 async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by: str) -> PurchaseConfirmResponse:
     purchase = crud_confirm_purchase(db, purchase_id, confirmed_by)
@@ -177,8 +177,6 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
     </body>
 </html>
 """
-
-
     message = EmailMessage()
     message["From"] = f"Patea la perola <{EMAIL_ADDRESS}>"
     message["To"] = purchase.buyer_email
@@ -215,6 +213,115 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
     )
     
     
+async def put_decline_purchase_service(db: Session, purchase_id: UUID, decline_by: str) -> PurchaseConfirmResponse:
+    purchase = crud_decline_purchase(db, purchase_id, decline_by)
+    raffle = get_raffle_by_id(db, purchase.raffle_id)
+    
+    html_content = f"""
+<html>
+<head>
+    <style>
+    body {{
+        font-family: 'Arial', sans-serif;
+        background-color: #f4f4f4;
+        padding: 20px;
+    }}
+    .card {{
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 30px;
+        max-width: 600px;
+        margin: auto;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }}
+    .title {{
+        color: #c0392b;
+        font-size: 24px;
+        margin-bottom: 20px;
+        text-align: center;
+    }}
+    .info {{
+        font-size: 16px;
+        margin-bottom: 10px;
+    }}
+    .highlight {{
+        font-weight: bold;
+        color: #34495e;
+    }}
+    .message {{
+        font-size: 16px;
+        margin: 20px 0;
+        line-height: 1.6;
+        color: #555;
+    }}
+    .footer {{
+        margin-top: 30px;
+        font-size: 14px;
+        color: #888;
+        text-align: center;
+    }}
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="title">❌ Su compra ha sido rechazada</div>
+    <div class="info"><span class="highlight">Rifa : </span> {raffle.title if raffle else "Desconocida"}</div>
+    <div class="info"><span class="highlight">Nombre:</span> {purchase.full_name}</div>
+    <div class="info"><span class="highlight">Email:</span> {purchase.buyer_email}</div>
+    <div class="info"><span class="highlight">Teléfono:</span> {purchase.phone_number}</div>
+    <div class="message">
+        Lamentamos informarle que su compra ha sido <strong>rechazada</strong> por los directivos de 
+        <strong>Patea la Perola</strong>. <br><br>
+        Le recomendamos ponerse en contacto con nuestro equipo de soporte a la brevedad para validar 
+        las razones de este rechazo o confirmar si se trató de un error administrativo. <br><br>
+        Nuestro equipo estará encantado de asistirle y brindarle la mejor solución posible.
+    </div>
+    <div class="footer">
+        Atentamente,<br>
+        <strong>Patea la Perola</strong><br>
+        Equipo de Atención al Cliente
+    </div>
+</div>
+</body>
+</html>
+"""
+
+    message = EmailMessage()
+    message["From"] = f"Patea la perola <{EMAIL_ADDRESS}>"
+    message["To"] = purchase.buyer_email
+    message["Subject"] = "Confirmación de compra - Patea la perola"
+    message.set_content("Tu cliente de correo no soporta HTML.")
+    message.add_alternative(html_content, subtype="html")
+
+
+    await aiosmtplib.send(
+        message,
+        hostname="smtp.gmail.com",
+        port=587,
+        start_tls=True,
+        username=EMAIL_ADDRESS,
+        password=EMAIL_PASSWORD,
+    )
+
+    return PurchaseConfirmResponse(
+        id=purchase.id,
+        raffle_id=purchase.raffle_id,
+        raffle_title=raffle.title if raffle else "",
+        buyer_email=purchase.buyer_email,
+        ticket_numbers=purchase.ticket_numbers,
+        total_paid=purchase.total_paid,
+        payment_method=purchase.payment_method,
+        payment_reference=purchase.payment_reference,
+        purchase_date=purchase.purchase_date,
+        full_name=purchase.full_name,
+        phone_number=purchase.phone_number,
+        holder_cta_bank=purchase.holder_cta_bank,
+        is_confirmed=purchase.is_confirmed,
+        confirmed_at=purchase.confirmed_at,      # <-- agregado
+        confirmed_by=purchase.confirmed_by  
+    )
+    
+##########################################################
 
 async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: UploadFile = None) -> PurchaseResponse:
     raffle = get_raffle_by_id(db, purchase_data.raffle_id)
