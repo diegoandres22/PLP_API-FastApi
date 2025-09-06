@@ -356,7 +356,7 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
     phone_number=purchase_data.phone_number,
     holder_cta_bank=purchase_data.holder_cta_bank,
     image_url=image_url, #imagen de la compra
-    is_confirmed=False  # Inicialmente no confirmado
+    is_confirmed=None  # Inicialmente no confirmado
 )
     purchase = crud_create_purchase(db, purchase)
 
