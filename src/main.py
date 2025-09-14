@@ -5,9 +5,6 @@ from src.routes import bank_account_route as bank_account
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-# Leer entorno y whitelist desde variables de entorno
-ENVIRONMENT = os.getenv("ENVIRONMENT", "")
-WHITELISTED_IPS = os.getenv("WHITELISTED_IPS", "").split(",")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
 app = FastAPI()
