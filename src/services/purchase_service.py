@@ -1,7 +1,7 @@
 import logging
 import random
-from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from src.core.timezone import now_caracas
 from fastapi import HTTPException
 from src.schemas.purchase_schema import (
     PurchaseCreate,
@@ -15,7 +15,6 @@ from src.models.purchasesModel import Purchase
 from src.crud.purchase_crud import (
     crud_get_all_purchases,
     crud_get_purchase_by_id,
-    crud_create_purchase,
     crud_confirm_purchase,
     crud_get_purchase_by_ticket_number,
     crud_get_recent_or_unconfirmed_purchases,  
@@ -24,7 +23,7 @@ from src.crud.purchase_crud import (
 )
 from src.crud.raffle_crud import (
     get_raffle_by_id,
-    update_raffle_tickets_sold,
+    get_raffle_for_update,
 )
 
 from fastapi import UploadFile
@@ -45,6 +44,10 @@ logger = logging.getLogger("patealaperola")
 # la API nunca debe confiar en que la petición vino de ese frontend.
 ALLOWED_RECEIPT_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 MAX_RECEIPT_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
+
+# Espacio de numeración cuando la rifa no define total_tickets (dato heredado).
+# 10.000 = boletos de 4 dígitos, 0000–9999.
+DEFAULT_TOTAL_TICKETS = 10_000
 
 
 async def _read_and_validate_receipt(file: UploadFile) -> bytes:
@@ -95,7 +98,7 @@ def get_ticket_numbers_by_email(db: Session, email: str) -> list[int]:
 def get_recent_or_unconfirmed_purchases(db: Session) -> List[PurchaseResponse]:
     purchases = crud_get_recent_or_unconfirmed_purchases(db)
     return [
-        PurchaseResponse.from_orm(purchase)
+        PurchaseResponse.model_validate(purchase)
         for purchase in purchases
     ]
 
@@ -351,61 +354,101 @@ async def put_decline_purchase_service(db: Session, purchase_id: UUID, decline_b
 
 ##########################################################
 
-async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: UploadFile = None) -> PurchaseResponse:
+async def create_purchase(db: Session, purchase_data: PurchaseCreate, file: UploadFile = None) -> PurchaseResponse:
+    """Reserva boletos de forma atómica y registra la compra.
+
+    Toda la reserva (leer vendidos -> elegir números -> insertar compra ->
+    actualizar la rifa) ocurre dentro de UNA transacción que sostiene un lock
+    de fila sobre la rifa. Antes esto eran tres transacciones separadas sin
+    lock, así que dos compras simultáneas podían recibir los mismos números.
+    """
+    # --- 1. Validaciones baratas, sin lock -------------------------------
     raffle = get_raffle_by_id(db, purchase_data.raffle_id)
     if not raffle:
         raise HTTPException(status_code=404, detail="Rifa no encontrada")
 
+    if raffle.raffle_status != 1:
+        raise HTTPException(status_code=400, detail="Esta rifa no está activa")
+
+    if purchase_data.ticket_count <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad de boletos debe ser mayor a cero")
+
     if purchase_data.ticket_count < raffle.min_purchase:
-        raise HTTPException(status_code=400, detail=f"Debe comprar al menos {raffle.min_purchase} boletos")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Debe comprar al menos {int(raffle.min_purchase)} boletos",
+        )
 
-    sold = set(raffle.tickets_sold_list or [])
-    total_available = 9999
-
-    if len(sold) + purchase_data.ticket_count > total_available:
-        raise HTTPException(status_code=400, detail="No hay suficientes boletos disponibles")
-
-    available_numbers = set(range(0, total_available)) - sold  # conjunto de enteros
-    selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
-
+    # --- 2. I/O de red FUERA de la transacción con lock ------------------
+    # Validar y subir el comprobante puede tardar segundos; hacerlo mientras
+    # se sostiene el lock bloquearía a todos los demás compradores.
     file_bytes = await _read_and_validate_receipt(file)
+    db.rollback()  # cierra la transacción de sólo lectura antes del upload
     image_url = upload_file_to_gcs(file_bytes, file.filename)
 
-    purchase = Purchase(
-    raffle_id=raffle.id,
-    ticket_numbers=selected_numbers,
-    total_paid=purchase_data.ticket_count * raffle.ticket_price,
-    payment_method=purchase_data.payment_method,
-    payment_reference=purchase_data.payment_reference,
-    purchase_date=datetime.utcnow() - timedelta(hours=4),  # Restar 4 horas manualmente para hora Caracas
-    buyer_email=purchase_data.buyer_email,
-    full_name=purchase_data.full_name,
-    phone_number=purchase_data.phone_number,
-    holder_cta_bank=purchase_data.holder_cta_bank,
-    image_url=image_url, #imagen de la compra
-    is_confirmed=None  # Inicialmente no confirmado
-)
-    purchase = crud_create_purchase(db, purchase)
+    # --- 3. Reserva atómica ----------------------------------------------
+    try:
+        locked_raffle = get_raffle_for_update(db, purchase_data.raffle_id)
+        if not locked_raffle:
+            raise HTTPException(status_code=404, detail="Rifa no encontrada")
 
-    updated_sold = list(sold.union(set(selected_numbers)))
-    update_raffle_tickets_sold(db, raffle, updated_sold)
+        total_tickets = locked_raffle.total_tickets or DEFAULT_TOTAL_TICKETS
+        sold = {int(t) for t in (locked_raffle.tickets_sold_list or [])}
+        available_numbers = set(range(0, total_tickets)) - sold
+
+        if len(available_numbers) < purchase_data.ticket_count:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Solo quedan {len(available_numbers)} boletos disponibles",
+            )
+
+        selected_numbers = sorted(
+            random.sample(sorted(available_numbers), purchase_data.ticket_count)
+        )
+
+        purchase = Purchase(
+            raffle_id=locked_raffle.id,
+            ticket_numbers=selected_numbers,
+            total_paid=purchase_data.ticket_count * locked_raffle.ticket_price,
+            payment_method=purchase_data.payment_method,
+            payment_reference=purchase_data.payment_reference,
+            purchase_date=now_caracas(),
+            buyer_email=purchase_data.buyer_email,
+            full_name=purchase_data.full_name,
+            phone_number=purchase_data.phone_number,
+            holder_cta_bank=purchase_data.holder_cta_bank,
+            image_url=image_url,
+            is_confirmed=None,  # pendiente de aprobación del admin
+        )
+        db.add(purchase)
+        locked_raffle.tickets_sold_list = sorted(sold | set(selected_numbers))
+
+        db.commit()  # compra + boletos vendidos se guardan juntos o no se guarda nada
+        db.refresh(purchase)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Fallo al reservar boletos para la rifa %s", purchase_data.raffle_id)
+        raise
 
     return PurchaseResponse(
-    id=purchase.id,
-    raffle_id=raffle.id,
-    buyer_email=purchase_data.buyer_email,
-    ticket_numbers=selected_numbers,
-    total_paid=purchase.total_paid,
-    payment_method=purchase.payment_method,
-    payment_reference=purchase.payment_reference,
-    purchase_date=purchase.purchase_date,
-    full_name=purchase_data.full_name,
-    phone_number=purchase_data.phone_number,
-    holder_cta_bank=purchase_data.holder_cta_bank,
-    is_confirmed=purchase.is_confirmed,
-    image_url=image_url,
-    raffle_title=raffle.title
-)
+        id=purchase.id,
+        raffle_id=purchase.raffle_id,
+        raffle_title=raffle.title,
+        buyer_email=purchase.buyer_email,
+        ticket_numbers=purchase.ticket_numbers,
+        total_paid=purchase.total_paid,
+        payment_method=purchase.payment_method,
+        payment_reference=purchase.payment_reference,
+        purchase_date=purchase.purchase_date,
+        full_name=purchase.full_name,
+        phone_number=purchase.phone_number,
+        holder_cta_bank=purchase.holder_cta_bank,
+        is_confirmed=purchase.is_confirmed,
+        image_url=purchase.image_url,
+    )
 
 
 def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PublicPurchaseResponse:

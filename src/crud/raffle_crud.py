@@ -1,25 +1,41 @@
+from uuid import UUID as UUIDType
 
 from sqlalchemy.orm import Session
+
 from src.models.raffleModel import Raffle
-from src.schemas.raffle_schema import RaffleCreate, RaffleUpdate
-from uuid import UUID as UUIDType
-from typing import List 
+from src.schemas.raffle_schema import RaffleUpdate
 
 
-def get_all_raffles(db: Session):
-    raffles = db.query(Raffle).all()
-    for r in raffles:
-        if r.tickets_sold_list:
-            r.tickets_sold_list = sorted(r.tickets_sold_list, key=lambda x: int(x))
-    return raffles
+# Nota: estas funciones ya NO reordenan tickets_sold_list sobre la instancia
+# del ORM. Hacerlo marcaba la entidad como "sucia" y el siguiente commit
+# reescribía la columna como efecto colateral de una simple lectura. El
+# ordenamiento es presentación y ahora vive en la capa de servicio.
 
-def get_raffle_by_id(db: Session, raffle_id: UUIDType):
-    raffle = db.query(Raffle).filter(Raffle.id == raffle_id).first()
-    if raffle and raffle.tickets_sold_list:
-        raffle.tickets_sold_list = sorted(raffle.tickets_sold_list, key=lambda x: int(x))
-    return raffle
+def get_all_raffles(db: Session) -> list[Raffle]:
+    return db.query(Raffle).all()
 
-def crud_create_raffle(db: Session, data: dict):
+
+def get_raffle_by_id(db: Session, raffle_id: UUIDType) -> Raffle | None:
+    return db.query(Raffle).filter(Raffle.id == raffle_id).first()
+
+
+def get_raffle_for_update(db: Session, raffle_id: UUIDType) -> Raffle | None:
+    """Lee la rifa tomando un lock de fila (SELECT ... FOR UPDATE).
+
+    Es la pieza que serializa la venta de boletos: mientras una transacción
+    mantiene este lock, cualquier otra que intente reservar boletos de la
+    MISMA rifa queda en espera, en vez de leer una lista de vendidos vieja y
+    asignar los mismos números.
+    """
+    return (
+        db.query(Raffle)
+        .filter(Raffle.id == raffle_id)
+        .with_for_update()
+        .first()
+    )
+
+
+def crud_create_raffle(db: Session, data: dict) -> Raffle:
     raffle = Raffle(**data)
     db.add(raffle)
     db.commit()
@@ -27,33 +43,21 @@ def crud_create_raffle(db: Session, data: dict):
     return raffle
 
 
-def update_raffle(db: Session, raffle_id: UUIDType, data: RaffleUpdate):
+def update_raffle(db: Session, raffle_id: UUIDType, data: RaffleUpdate) -> Raffle | None:
     raffle = get_raffle_by_id(db, raffle_id)
     if not raffle:
         return None
-    for key, value in data.dict(exclude_unset=True).items():
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(raffle, key, value)
     db.commit()
     db.refresh(raffle)
     return raffle
 
-def delete_raffle(db: Session, raffle_id: UUIDType):
+
+def delete_raffle(db: Session, raffle_id: UUIDType) -> bool | None:
     raffle = get_raffle_by_id(db, raffle_id)
     if not raffle:
         return None
     db.delete(raffle)
     db.commit()
     return True
-
-def update_raffle_tickets_sold(db: Session, raffle, new_tickets: list[int]):
-    if raffle.tickets_sold_list is None:
-        raffle.tickets_sold_list = []
-
-    # Agrega los nuevos tickets sin repetir (por si acaso)
-    existing_tickets = set(raffle.tickets_sold_list)
-    updated_tickets = list(existing_tickets.union(new_tickets))
-
-    raffle.tickets_sold_list = updated_tickets
-
-    db.commit()
-    db.refresh(raffle)

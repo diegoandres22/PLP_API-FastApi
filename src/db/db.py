@@ -1,34 +1,29 @@
 # src/db/db.py
-from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
-# DB_USER = os.getenv("DB_USER")  
-# DB_PASSWORD = os.getenv("DB_PASSWORD")
-# DB_HOST = os.getenv("DB_HOST")
-# DB_NAME = os.getenv("DB_NAME")
-# DB_PORT = os.getenv("DB_PORT")
-
-# url = URL.create(
-#     drivername="postgresql",
-#     username=DB_USER,
-#     password=DB_PASSWORD,
-#     host=DB_HOST,
-#     port=DB_PORT,
-#     database=DB_NAME,
-# )
-
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "Falta la variable de entorno DATABASE_URL. Copia .env.example a .env "
+        "y complétala (ver README)."
+    )
+
+# El SSL era obligatorio a fuerza (connect_args sslmode=require), lo que hacía
+# imposible levantar la API contra un Postgres local o en Docker. Ahora se
+# controla por entorno y sigue siendo 'require' por defecto para producción.
+DB_SSLMODE = os.getenv("DB_SSLMODE", "require")
+connect_args = {} if DB_SSLMODE in ("", "disable") else {"sslmode": DB_SSLMODE}
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    connect_args={"sslmode": "require"}
+    connect_args=connect_args,
 )
-# engine = create_engine(DATABASE_URL)
-# engine = create_engine(url)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

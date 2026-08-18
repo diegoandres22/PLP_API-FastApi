@@ -12,7 +12,7 @@ from src.crud.bank_account_crud import (
 
 def list_bank_accounts(db: Session) -> list[BankAccountResponse]:
     accounts = get_all_bank_accounts(db)
-    return [BankAccountResponse.from_orm(acc) for acc in accounts]
+    return [BankAccountResponse.model_validate(acc) for acc in accounts]
 
 def create_new_bank_account(db: Session, bank_account_data: BankAccountCreate) -> BankAccountResponse:
     bank_account = BankAccount(
@@ -25,7 +25,7 @@ def create_new_bank_account(db: Session, bank_account_data: BankAccountCreate) -
     is_active=False
 )
     created_account = create_bank_account(db, bank_account)
-    return BankAccountResponse.from_orm(created_account)
+    return BankAccountResponse.model_validate(created_account)
 
 def toggle_bank_account(db: Session, bank_account_id: UUID) -> ToggleActiveResponse:
     account = toggle_bank_account_active(db, bank_account_id)
