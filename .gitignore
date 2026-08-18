@@ -1,3 +1,27 @@
-venv
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python
 __pycache__/
-.env/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Variables de entorno.
+# ANTES decía `.env/` (con barra final): eso ignora un DIRECTORIO llamado
+# .env, no el ARCHIVO .env. Por eso el .env con credenciales terminó
+# commiteado al repositorio.
+.env
+.env.*
+!.env.example
+
+# Credenciales de cuenta de servicio de Google Cloud
+*-credentials.json
+service-account*.json
+gcs-*.json
+
+# Sistema
+.DS_Store
+Thumbs.db
