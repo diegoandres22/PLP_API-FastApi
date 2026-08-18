@@ -19,3 +19,5 @@ python-multipart
 google-cloud-storage
 pydantic[email]
 aiosmtplib
+PyJWT==2.9.0
+slowapi==0.1.9

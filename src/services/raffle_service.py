@@ -1,6 +1,6 @@
 
 from sqlalchemy.orm import Session
-from src.schemas.raffle_schema import RaffleCreate, RaffleUpdate
+from src.schemas.raffle_schema import RaffleCreate, RaffleUpdate, RaffleOut
 from src.crud.raffle_crud import (
     get_all_raffles,
     get_raffle_by_id,
@@ -13,8 +13,10 @@ from uuid import UUID as UUIDType
 
 def get_raffles_endpoint(db: Session):
     raffles = get_all_raffles(db)
-    return {"Rifas": [r.__dict__ for r in raffles]}
-    
+    # RaffleOut (Pydantic) en vez de r.__dict__: r.__dict__ expone el estado
+    # interno de SQLAlchemy (_sa_instance_state) en la respuesta JSON.
+    return {"Rifas": [RaffleOut.model_validate(r) for r in raffles]}
+
 def create_raffle(data: RaffleCreate, db: Session, image_url: str):
     data_dict = data.dict()
     data_dict["image"] = image_url

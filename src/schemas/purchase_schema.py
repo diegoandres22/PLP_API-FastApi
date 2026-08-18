@@ -17,7 +17,23 @@ class PurchaseCreate(BaseModel):
 
 class TicketsByRaffleResponse(BaseModel):
     raffle_id: UUID
-    ticket_numbers: List[int]    
+    ticket_numbers: List[int]
+
+
+class PublicPurchaseResponse(BaseModel):
+    """Respuesta para endpoints públicos (sin login): nunca incluir PII del
+    comprador (nombre, teléfono, email, referencia de pago, comprobante)."""
+    id: UUID
+    raffle_id: UUID
+    raffle_title: Optional[str] = None
+    ticket_numbers: List[int]
+    purchase_date: datetime
+    is_confirmed: Optional[bool] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
 
 class PurchaseResponse(BaseModel):
     id: UUID

@@ -1,9 +1,15 @@
+import logging
 import random
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from src.schemas.purchase_schema import PurchaseCreate, PurchaseResponse, PurchaseConfirmResponse
-from typing import List 
+from src.schemas.purchase_schema import (
+    PurchaseCreate,
+    PurchaseResponse,
+    PurchaseConfirmResponse,
+    PublicPurchaseResponse,
+)
+from typing import List
 from uuid import UUID
 from src.models.purchasesModel import Purchase
 from src.crud.purchase_crud import (
@@ -32,6 +38,42 @@ from src.services.gcs_service import upload_file_to_gcs
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+logger = logging.getLogger("patealaperola")
+
+# Validación server-side del comprobante: el frontend ya valida esto, pero
+# la API nunca debe confiar en que la petición vino de ese frontend.
+ALLOWED_RECEIPT_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
+MAX_RECEIPT_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+async def _read_and_validate_receipt(file: UploadFile) -> bytes:
+    if file.content_type not in ALLOWED_RECEIPT_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo de archivo no permitido. Solo PDF, JPG o PNG",
+        )
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_RECEIPT_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Archivo demasiado grande, máximo 5MB")
+    return file_bytes
+
+
+async def _send_email_safely(message: EmailMessage) -> None:
+    # Si el correo falla, la compra ya fue confirmada/rechazada en BD: no
+    # queremos que ese error rompa la respuesta ni deje al admin sin
+    # confirmación de que la acción sí se aplicó.
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname="smtp.gmail.com",
+            port=587,
+            start_tls=True,
+            username=EMAIL_ADDRESS,
+            password=EMAIL_PASSWORD,
+        )
+    except Exception:
+        logger.exception("No se pudo enviar el correo de notificación al comprador")
 
 
 #######################################
@@ -63,10 +105,12 @@ def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
     purchases = crud_get_all_purchases(db)
     purchases_response = []
     for p in purchases:
+        raffle = get_raffle_by_id(db, p.raffle_id)
         purchases_response.append(
             PurchaseResponse(
                 id=p.id,
                 raffle_id=p.raffle_id,
+                raffle_title=raffle.title if raffle else None,  # antes quedaba siempre None
                 buyer_email=p.buyer_email,
                 ticket_numbers=p.ticket_numbers,
                 total_paid=p.total_paid,
@@ -184,15 +228,7 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
     message.set_content("Tu cliente de correo no soporta HTML.")
     message.add_alternative(html_content, subtype="html")
 
-
-    await aiosmtplib.send(
-        message,
-        hostname="smtp.gmail.com",
-        port=587,
-        start_tls=True,
-        username=EMAIL_ADDRESS,
-        password=EMAIL_PASSWORD,
-    )
+    await _send_email_safely(message)
 
     return PurchaseConfirmResponse(
         id=purchase.id,
@@ -209,10 +245,10 @@ async def confirm_purchase_service(db: Session, purchase_id: UUID, confirmed_by:
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
         confirmed_at=purchase.confirmed_at,      # <-- agregado
-        confirmed_by=purchase.confirmed_by  
+        confirmed_by=purchase.confirmed_by
     )
-    
-    
+
+
 async def put_decline_purchase_service(db: Session, purchase_id: UUID, decline_by: str) -> PurchaseConfirmResponse:
     purchase = crud_decline_purchase(db, purchase_id, decline_by)
     raffle = get_raffle_by_id(db, purchase.raffle_id)
@@ -293,15 +329,7 @@ async def put_decline_purchase_service(db: Session, purchase_id: UUID, decline_b
     message.set_content("Tu cliente de correo no soporta HTML.")
     message.add_alternative(html_content, subtype="html")
 
-
-    await aiosmtplib.send(
-        message,
-        hostname="smtp.gmail.com",
-        port=587,
-        start_tls=True,
-        username=EMAIL_ADDRESS,
-        password=EMAIL_PASSWORD,
-    )
+    await _send_email_safely(message)
 
     return PurchaseConfirmResponse(
         id=purchase.id,
@@ -318,9 +346,9 @@ async def put_decline_purchase_service(db: Session, purchase_id: UUID, decline_b
         holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
         confirmed_at=purchase.confirmed_at,      # <-- agregado
-        confirmed_by=purchase.confirmed_by  
+        confirmed_by=purchase.confirmed_by
     )
-    
+
 ##########################################################
 
 async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: UploadFile = None) -> PurchaseResponse:
@@ -340,8 +368,7 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
     available_numbers = set(range(0, total_available)) - sold  # conjunto de enteros
     selected_numbers = random.sample(list(available_numbers), purchase_data.ticket_count)
 
-    
-    file_bytes = await file.read()
+    file_bytes = await _read_and_validate_receipt(file)
     image_url = upload_file_to_gcs(file_bytes, file.filename)
 
     purchase = Purchase(
@@ -381,7 +408,8 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate,  file: Upl
 )
 
 
-def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseResponse:
+def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PublicPurchaseResponse:
+    # Endpoint público (sin login): solo se devuelven campos no sensibles.
     purchase = crud_get_purchase_by_ticket_number(db, ticket_number)
     if not purchase:
         raise HTTPException(status_code=404, detail="Compra con ese número no encontrada")
@@ -389,22 +417,11 @@ def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PurchaseRe
     raffle = get_raffle_by_id(db, purchase.raffle_id)
     raffle_title = raffle.title if raffle else ""
 
-    return PurchaseResponse(
+    return PublicPurchaseResponse(
         id=purchase.id,
         raffle_id=purchase.raffle_id,
         raffle_title=raffle_title,
-        buyer_email=purchase.buyer_email,
         ticket_numbers=purchase.ticket_numbers,
-        total_paid=purchase.total_paid,
-        payment_method=purchase.payment_method,
-        payment_reference=purchase.payment_reference,
         purchase_date=purchase.purchase_date,
-        full_name=purchase.full_name,
-        phone_number=purchase.phone_number,
-        holder_cta_bank=purchase.holder_cta_bank,
         is_confirmed=purchase.is_confirmed,
-        image_url=purchase.image_url,
-        confirmed_at=purchase.confirmed_at, 
-        confirmed_by=purchase.confirmed_by 
-
     )
