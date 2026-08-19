@@ -1,8 +1,9 @@
 import logging
 import random
 from sqlalchemy.orm import Session
-from src.core.timezone import now_caracas
 from fastapi import HTTPException
+from src.core.timezone import now_caracas
+from src.core.errors import ApiError, ErrorCode
 from src.schemas.purchase_schema import (
     PurchaseCreate,
     PurchaseResponse,
@@ -52,13 +53,22 @@ DEFAULT_TOTAL_TICKETS = 10_000
 
 async def _read_and_validate_receipt(file: UploadFile) -> bytes:
     if file.content_type not in ALLOWED_RECEIPT_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Tipo de archivo no permitido. Solo PDF, JPG o PNG",
+        # 415, no 400: el payload en sí es válido, es el TIPO de archivo lo
+        # que el servidor no soporta.
+        raise ApiError(
+            415,
+            ErrorCode.INVALID_FILE_TYPE,
+            "Tipo de archivo no permitido. Solo PDF, JPG o PNG.",
+            context={"content_type": file.content_type, "allowed": sorted(ALLOWED_RECEIPT_CONTENT_TYPES)},
         )
     file_bytes = await file.read()
     if len(file_bytes) > MAX_RECEIPT_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail="Archivo demasiado grande, máximo 5MB")
+        raise ApiError(
+            413,
+            ErrorCode.FILE_TOO_LARGE,
+            "Archivo demasiado grande, máximo 5MB.",
+            context={"max_bytes": MAX_RECEIPT_SIZE_BYTES, "received_bytes": len(file_bytes)},
+        )
     return file_bytes
 
 
@@ -86,7 +96,6 @@ def get_ticket_numbers_by_email(db: Session, email: str) -> list[int]:
 
 
 #############################################
-
 
 
 
@@ -136,7 +145,7 @@ def get_all_purchases_with_details(db: Session) -> List[PurchaseResponse]:
 def get_purchase_by_id(db: Session, purchase_id: UUID) -> PurchaseResponse:
     purchase = crud_get_purchase_by_id(db, purchase_id)
     if not purchase:
-        raise HTTPException(status_code=404, detail="Compra no encontrada")
+        raise ApiError(404, ErrorCode.PURCHASE_NOT_FOUND, "Compra no encontrada", context={"purchase_id": str(purchase_id)})
 
     raffle = get_raffle_by_id(db, purchase.raffle_id)  # Obtener la rifa para info adicional
 
@@ -365,18 +374,27 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate, file: Uplo
     # --- 1. Validaciones baratas, sin lock -------------------------------
     raffle = get_raffle_by_id(db, purchase_data.raffle_id)
     if not raffle:
-        raise HTTPException(status_code=404, detail="Rifa no encontrada")
+        raise ApiError(404, ErrorCode.RAFFLE_NOT_FOUND, "Rifa no encontrada", context={"raffle_id": str(purchase_data.raffle_id)})
 
     if raffle.raffle_status != 1:
-        raise HTTPException(status_code=400, detail="Esta rifa no está activa")
+        # 409, no 400: la rifa existe y el payload es válido, el conflicto es
+        # el ESTADO actual del recurso (no está activa para comprar).
+        raise ApiError(409, ErrorCode.RAFFLE_NOT_ACTIVE, "Esta rifa no está activa.")
 
     if purchase_data.ticket_count <= 0:
-        raise HTTPException(status_code=400, detail="La cantidad de boletos debe ser mayor a cero")
+        raise ApiError(
+            400,
+            ErrorCode.INVALID_TICKET_COUNT,
+            "La cantidad de boletos debe ser mayor a cero.",
+            context={"ticket_count": purchase_data.ticket_count},
+        )
 
     if purchase_data.ticket_count < raffle.min_purchase:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Debe comprar al menos {int(raffle.min_purchase)} boletos",
+        raise ApiError(
+            400,
+            ErrorCode.MIN_PURCHASE_NOT_MET,
+            f"Debe comprar al menos {int(raffle.min_purchase)} boletos.",
+            context={"min_purchase": int(raffle.min_purchase), "ticket_count": purchase_data.ticket_count},
         )
 
     # --- 2. I/O de red FUERA de la transacción con lock ------------------
@@ -390,16 +408,21 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate, file: Uplo
     try:
         locked_raffle = get_raffle_for_update(db, purchase_data.raffle_id)
         if not locked_raffle:
-            raise HTTPException(status_code=404, detail="Rifa no encontrada")
+            raise ApiError(404, ErrorCode.RAFFLE_NOT_FOUND, "Rifa no encontrada", context={"raffle_id": str(purchase_data.raffle_id)})
 
         total_tickets = locked_raffle.total_tickets or DEFAULT_TOTAL_TICKETS
         sold = {int(t) for t in (locked_raffle.tickets_sold_list or [])}
         available_numbers = set(range(0, total_tickets)) - sold
 
         if len(available_numbers) < purchase_data.ticket_count:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Solo quedan {len(available_numbers)} boletos disponibles",
+            # 409: conflicto por agotamiento de un recurso compartido (otros
+            # compradores se llevaron los boletos entre que el usuario abrió
+            # el formulario y envió la compra), no un payload inválido.
+            raise ApiError(
+                409,
+                ErrorCode.INSUFFICIENT_TICKETS,
+                f"Solo quedan {len(available_numbers)} boletos disponibles.",
+                context={"available": len(available_numbers), "requested": purchase_data.ticket_count},
             )
 
         selected_numbers = sorted(
@@ -426,6 +449,9 @@ async def create_purchase(db: Session, purchase_data: PurchaseCreate, file: Uplo
         db.commit()  # compra + boletos vendidos se guardan juntos o no se guarda nada
         db.refresh(purchase)
     except HTTPException:
+        # ApiError es subclase de HTTPException (ver src/core/errors.py), así
+        # que esto también atrapa el 409 de arriba: solo hace rollback y
+        # re-lanza tal cual, sin tocar el código/mensaje ya armado.
         db.rollback()
         raise
     except Exception:
@@ -455,7 +481,7 @@ def get_purchase_by_ticket_number(db: Session, ticket_number: int) -> PublicPurc
     # Endpoint público (sin login): solo se devuelven campos no sensibles.
     purchase = crud_get_purchase_by_ticket_number(db, ticket_number)
     if not purchase:
-        raise HTTPException(status_code=404, detail="Compra con ese número no encontrada")
+        raise ApiError(404, ErrorCode.PURCHASE_NOT_FOUND, "Compra con ese número no encontrada", context={"ticket_number": ticket_number})
 
     raffle = get_raffle_by_id(db, purchase.raffle_id)
     raffle_title = raffle.title if raffle else ""

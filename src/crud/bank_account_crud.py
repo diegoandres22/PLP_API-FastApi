@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from src.models.bank_account_model import BankAccount    
+from src.models.bank_account_model import BankAccount
 from uuid import UUID
-from fastapi import HTTPException
+from src.core.errors import ApiError, ErrorCode
 
 def get_all_bank_accounts(db: Session) -> list[BankAccount]:
     return db.query(BankAccount).all()
@@ -18,7 +18,7 @@ def create_bank_account(db: Session, bank_account: BankAccount) -> BankAccount:
 def toggle_bank_account_active(db: Session, bank_account_id: UUID) -> BankAccount:
     bank_account = get_bank_account_by_id(db, bank_account_id)
     if not bank_account:
-        raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada")
+        raise ApiError(404, ErrorCode.BANK_ACCOUNT_NOT_FOUND, "Cuenta bancaria no encontrada", context={"bank_account_id": str(bank_account_id)})
     bank_account.is_active = not bank_account.is_active
     db.commit()
     db.refresh(bank_account)

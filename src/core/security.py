@@ -12,9 +12,11 @@ import os
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+
+from src.core.errors import ApiError, ErrorCode
 
 API_JWT_SECRET = os.getenv("API_JWT_SECRET")
 API_JWT_ALGORITHM = "HS256"
@@ -32,16 +34,18 @@ def get_current_admin(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> AdminClaims:
     if credentials is None:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No autenticado",
+            code=ErrorCode.UNAUTHENTICATED,
+            message="No autenticado",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not API_JWT_SECRET:
         # Falta configurar el secreto en el entorno: no degradar a "sin auth".
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Autenticación no configurada en el servidor",
+            code=ErrorCode.SERVER_MISCONFIGURED,
+            message="Autenticación no configurada en el servidor",
         )
     try:
         payload = jwt.decode(
@@ -51,11 +55,11 @@ def get_current_admin(
             options={"require": ["exp", "sub", "role"]},
         )
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesión expirada")
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.SESSION_EXPIRED, "Sesión expirada")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.INVALID_TOKEN, "Token inválido")
 
     if payload.get("role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
+        raise ApiError(status.HTTP_403_FORBIDDEN, ErrorCode.FORBIDDEN, "No autorizado")
 
     return AdminClaims(email=payload["sub"], name=payload.get("name"), role=payload["role"])

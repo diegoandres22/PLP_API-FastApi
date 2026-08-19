@@ -1,8 +1,8 @@
 from uuid import UUID as UUIDType
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from src.core.errors import ApiError, ErrorCode
 from src.crud.raffle_crud import (
     crud_create_raffle,
     delete_raffle as crud_delete_raffle,
@@ -40,19 +40,19 @@ def get_raffle_by_id_endpoint(db: Session, raffle_id: UUIDType) -> RaffleOut:
     if not raffle:
         # Antes devolvía {"error": ...} con HTTP 200: el frontend no podía
         # distinguir "no existe" de una rifa válida.
-        raise HTTPException(status_code=404, detail="Rifa no encontrada")
+        raise ApiError(404, ErrorCode.RAFFLE_NOT_FOUND, "Rifa no encontrada", context={"raffle_id": str(raffle_id)})
     return _to_out(raffle)
 
 
 def delete_raffle_endpoint(db: Session, raffle_id: UUIDType):
     result = crud_delete_raffle(db, raffle_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Rifa no encontrada")
+        raise ApiError(404, ErrorCode.RAFFLE_NOT_FOUND, "Rifa no encontrada", context={"raffle_id": str(raffle_id)})
     return {"message": "Rifa eliminada con éxito"}
 
 
 def update_raffle_endpoint(db: Session, raffle_id: UUIDType, data: RaffleUpdate):
     raffle = crud_update_raffle(db, raffle_id, data)
     if not raffle:
-        raise HTTPException(status_code=404, detail="Rifa no encontrada")
+        raise ApiError(404, ErrorCode.RAFFLE_NOT_FOUND, "Rifa no encontrada", context={"raffle_id": str(raffle_id)})
     return {"message": "Rifa actualizada con éxito", "raffle": {"id": raffle.id, "title": raffle.title}}

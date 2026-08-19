@@ -1,9 +1,12 @@
 
+import logging
 from google.cloud import storage
 from google.oauth2 import service_account
 import uuid
 import os
 import json
+
+logger = logging.getLogger("patealaperola")
 
 BUCKET_NAME = "patelalaperola_imagenes"
 
@@ -27,9 +30,13 @@ def upload_file_to_gcs(file_bytes: bytes, filename: str) -> str:
         # Retornar URL pública (asumiendo permisos públicos en el bucket)
         return f"https://storage.googleapis.com/{BUCKET_NAME}/{unique_filename}"
 
-    except Exception as e:
-        # Manejo de error bonito
-        print(f"Error subiendo archivo a GCS: {e}")
+    except Exception:
+        # Antes: print() en vez del logger del proyecto — no queda en el
+        # mismo lugar que el resto de los logs de errores no controlados
+        # (main.py usa logger.exception). Sigue subiendo como RuntimeError:
+        # lo captura catch_unhandled_exceptions_middleware y responde 500
+        # genérico, sin filtrar detalles de credenciales/bucket al cliente.
+        logger.exception("Error subiendo archivo a GCS")
         raise RuntimeError("No se pudo subir la imagen. Revisa la configuración del bucket y las credenciales.")
 
 
