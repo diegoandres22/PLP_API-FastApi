@@ -1,0 +1,14 @@
+# Normaliza fin de línea a LF para todo archivo de texto, sin importar el
+# SO donde se edite (Windows/macOS/Linux). Evita que un simple guardado
+# desde un editor con autocrlf distinto genere diffs de "archivo completo
+# reescrito" sin ningún cambio de código real (visto en Procfile,
+# docker-compose.yaml, src/db/deps.py, src/schemas/purchase_schema.py y
+# src/services/bank_account_service.py).
+* text=auto eol=lf
+
+# Binarios: nunca tocar bytes, ni intentar detectarlos como texto.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
